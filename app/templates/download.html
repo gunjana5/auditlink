@@ -1,0 +1,80 @@
+{# download.html - /d/{token} page; passphrase form if needed #}
+{% extends "base.html" %}
+{% block title %}AuditLink - Download{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Download</h2>
+  <p class="lede">{{ filename }}</p>
+  <div class="meta">
+    <div>
+      <span class="k">Expires</span>
+      <span class="v">
+        {{ expires_at }}
+        {% if not expired %}
+          <span class="countdown" id="expiry-countdown" data-expires-at="{{ expires_at }}"></span>
+        {% endif %}
+      </span>
+    </div>
+    <div><span class="k">Downloads left</span><span class="v">{{ downloads_left }}</span></div>
+    <div>
+      <span class="k">Status</span>
+      <span class="v">
+        {% if expired %}
+          <span class="badge badge-danger">expired</span>
+        {% elif exhausted %}
+          <span class="badge badge-danger">limit reached</span>
+        {% else %}
+          <span class="badge badge-ok">available</span>
+        {% endif %}
+      </span>
+    </div>
+  </div>
+
+  {% if expired or exhausted %}
+    <p class="lede">This share is no longer available.</p>
+    <a class="btn btn-ghost" href="/">Back home</a>
+  {% else %}
+    <form action="/d/{{ token }}" method="post">
+      {% if requires_passphrase %}
+      <label>
+        <strong>Passphrase</strong>
+        <input type="password" name="passphrase" required autocomplete="current-password" />
+      </label>
+      {% endif %}
+      <button class="btn" type="submit">Download file</button>
+    </form>
+  {% endif %}
+</section>
+{% if not expired %}
+<script>
+(function () {
+  var el = document.getElementById("expiry-countdown");
+  if (!el) return;
+  var expiresAt = Date.parse(el.getAttribute("data-expires-at"));
+  if (isNaN(expiresAt)) return;
+
+  function pad(n) { return String(n); }
+
+  function tick() {
+    var ms = expiresAt - Date.now();
+    if (ms <= 0) {
+      el.textContent = "";
+      return;
+    }
+    var totalSec = Math.floor(ms / 1000);
+    var h = Math.floor(totalSec / 3600);
+    var m = Math.floor((totalSec % 3600) / 60);
+    var s = totalSec % 60;
+    if (h >= 1) {
+      el.textContent = " · expires in " + pad(h) + "h " + pad(m) + "m";
+      setTimeout(tick, 60 * 1000);
+    } else {
+      el.textContent = " · expires in " + pad(h) + "h " + pad(m) + "m " + pad(s) + "s";
+      setTimeout(tick, 1000);
+    }
+  }
+  tick();
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,65 @@
+{# result.html - show the share url after upload #}
+{% extends "base.html" %}
+{% block title %}AuditLink - Link ready{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Link ready</h2>
+  <p class="lede">Copy this URL. It will stop working after expiry or when the download budget is spent.</p>
+  <div class="link-box" id="share-url">{{ share_url }}</div>
+  <div class="meta">
+    <div><span class="k">File</span><span class="v">{{ filename }}</span></div>
+    <div>
+      <span class="k">Expires</span>
+      <span class="v">
+        {{ expires_at }}
+        <span class="countdown" id="expiry-countdown" data-expires-at="{{ expires_at }}"></span>
+      </span>
+    </div>
+    <div><span class="k">Max downloads</span><span class="v">{{ max_downloads }}</span></div>
+    <div>
+      <span class="k">Passphrase</span>
+      <span class="v">
+        {% if requires_passphrase %}
+          <span class="badge badge-warn">required</span>
+        {% else %}
+          <span class="badge badge-ok">none</span>
+        {% endif %}
+      </span>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn" type="button" onclick="navigator.clipboard.writeText(document.getElementById('share-url').textContent.trim())">Copy link</button>
+    <a class="btn btn-ghost" href="/">Share another</a>
+  </div>
+</section>
+<script>
+(function () {
+  var el = document.getElementById("expiry-countdown");
+  if (!el) return;
+  var expiresAt = Date.parse(el.getAttribute("data-expires-at"));
+  if (isNaN(expiresAt)) return;
+
+  function pad(n) { return String(n); }
+
+  function tick() {
+    var ms = expiresAt - Date.now();
+    if (ms <= 0) {
+      el.textContent = "";
+      return;
+    }
+    var totalSec = Math.floor(ms / 1000);
+    var h = Math.floor(totalSec / 3600);
+    var m = Math.floor((totalSec % 3600) / 60);
+    var s = totalSec % 60;
+    if (h >= 1) {
+      el.textContent = " · expires in " + pad(h) + "h " + pad(m) + "m";
+      setTimeout(tick, 60 * 1000);
+    } else {
+      el.textContent = " · expires in " + pad(h) + "h " + pad(m) + "m " + pad(s) + "s";
+      setTimeout(tick, 1000);
+    }
+  }
+  tick();
+})();
+</script>
+{% endblock %}
