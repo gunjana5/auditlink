@@ -189,5 +189,5 @@ def test_rate_limit_logs_event(tmp_path: Path):
 def test_home_renders(client: TestClient):
     r = client.get("/")
     assert r.status_code == 200
-    assert "AuditLink" in r.text
+    assert "auditlink" in r.text
     assert "Generate link" in r.text

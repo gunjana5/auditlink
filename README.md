@@ -1,4 +1,4 @@
-# AuditLink
+# auditlink
 
 ## what it is
 
@@ -66,7 +66,7 @@ flowchart TB
         A[Audit consumer]
     end
 
-    subgraph auditlink [AuditLink]
+    subgraph auditlink [auditlink]
         API[FastAPI routes]
         RL[In-memory rate limiter]
         SEC[PBKDF2 + path guards]

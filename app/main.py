@@ -74,7 +74,7 @@ def create_app(
         yield
 
     application = FastAPI(
-        title="AuditLink",
+        title="auditlink",
         description="Secure file share with expiry and append-only audit trail",
         version="1.0.0",
         lifespan=lifespan,
