@@ -1,6 +1,31 @@
 {# home form - file + optional passphrase / expiry / max downloads #}
 {% extends "base.html" %}
 {% block title %}auditlink - Upload{% endblock %}
+{% block features %}
+{# four beats under the brand - what this desk actually does #}
+<div class="feature-strip" aria-hidden="true">
+  <div class="feature">
+    <img src="/static/icons/link.svg" alt="" />
+    <strong>Token link</strong>
+    <span>opaque /d/… url, not sequential ids</span>
+  </div>
+  <div class="feature">
+    <img src="/static/icons/lock.svg" alt="" />
+    <strong>Optional lock</strong>
+    <span>pbkdf2 passphrase, never stored plain</span>
+  </div>
+  <div class="feature">
+    <img src="/static/icons/hash.svg" alt="" />
+    <strong>SHA-256</strong>
+    <span>hashed on upload, checked on download</span>
+  </div>
+  <div class="feature">
+    <img src="/static/icons/trail.svg" alt="" />
+    <strong>Audit trail</strong>
+    <span>every attempt lands in /ops</span>
+  </div>
+</div>
+{% endblock %}
 {% block content %}
 <section class="panel">
   <h2>Share a file</h2>

@@ -6,7 +6,10 @@
 
 {% if locked %}
 <section class="panel">
-  <h2>Ops desk</h2>
+  <div class="panel-head">
+    <h2>Ops desk</h2>
+    <span class="badge badge-warn">locked</span>
+  </div>
   <p class="lede">AUDIT_TOKEN is set. Enter it to open the audit console.</p>
   <form action="/ops/unlock" method="post">
     <label>
@@ -33,6 +36,7 @@
   </div>
   <p class="lede">Append-only audit trail. Filter by event or token prefix.</p>
 
+  {# quick pulse of event volume - same keys as the filter dropdown #}
   <div class="counts">
     {% for key in ["upload", "download_success", "download_denied", "rate_limited", "revoked", "hash_mismatch", "cleanup", "expired"] %}
       <div class="count-pill">
