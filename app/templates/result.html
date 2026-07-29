@@ -1,4 +1,4 @@
-{# result.html - show the share url after upload #}
+{# show the share url after upload #}
 {% extends "base.html" %}
 {% block title %}auditlink - Link ready{% endblock %}
 {% block content %}
@@ -12,6 +12,7 @@
       <span class="k">Expires</span>
       <span class="v">
         {{ expires_at }}
+        {# tiny countdown - updates in-page so you can see it ticking #}
         <span class="countdown" id="expiry-countdown" data-expires-at="{{ expires_at }}"></span>
       </span>
     </div>
@@ -51,6 +52,7 @@
     var h = Math.floor(totalSec / 3600);
     var m = Math.floor((totalSec % 3600) / 60);
     var s = totalSec % 60;
+    // once past an hour just refresh every minute - no need for second precision
     if (h >= 1) {
       el.textContent = " · expires in " + pad(h) + "h " + pad(m) + "m";
       setTimeout(tick, 60 * 1000);

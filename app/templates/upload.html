@@ -1,4 +1,4 @@
-{# upload.html - home form: file + optional passphrase / expiry / max downloads #}
+{# home form - file + optional passphrase / expiry / max downloads #}
 {% extends "base.html" %}
 {% block title %}auditlink - Upload{% endblock %}
 {% block content %}
@@ -13,6 +13,7 @@
     </label>
     <label>
       <strong>Passphrase</strong> <span class="hint">(optional)</span>
+      {# leave blank = open link; hashed server-side if set #}
       <input type="password" name="passphrase" autocomplete="new-password" placeholder="Leave blank for open link" />
     </label>
     <div class="row">

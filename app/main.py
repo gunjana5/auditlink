@@ -46,6 +46,7 @@ def create_app(
     max_upload_bytes: Optional[int] = None,
     rate_limit_max: int = 20,
 ) -> FastAPI:
+    # env overrides so docker / tests can point at tmp dirs
     storage = Path(
         storage_dir
         or os.environ.get("AUDITLINK_STORAGE", BASE_DIR / "storage")
@@ -85,6 +86,7 @@ def create_app(
     application.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     def client_ip(request: Request) -> str:
+        # trust first hop if behind a proxy - fine for demo
         forwarded = request.headers.get("x-forwarded-for")
         if forwarded:
             return forwarded.split(",")[0].strip()
@@ -96,7 +98,7 @@ def create_app(
         authorization: Optional[str] = Header(default=None),
         x_audit_token: Optional[str] = Header(default=None, alias="X-Audit-Token"),
     ) -> None:
-        # empty AUDIT_TOKEN = demo mode, endpoint is open on purpose
+        # unset AUDIT_TOKEN = audit api is open - demo only
         if not token_secret:
             return
         provided = x_audit_token
@@ -138,6 +140,7 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
 
+        # stream in chunks so we don't blow ram on big uploads
         size = 0
         with dest.open("wb") as out:
             while True:
@@ -162,6 +165,7 @@ def create_app(
         if passphrase.strip():
             salt_hex, hash_hex = hash_passphrase(passphrase.strip())
 
+        # tokenised link + optional passphrase
         token = generate_token()
         expires_at = utc_now() + timedelta(hours=expiry_hours)
         share = db.create_share(
@@ -184,6 +188,7 @@ def create_app(
 
         share_url = str(request.url_for("download_page", token=token))
         accept = request.headers.get("accept", "")
+        # json for api clients / tests, otherwise the html result page
         if "application/json" in accept:
             return JSONResponse(
                 {
@@ -285,6 +290,7 @@ def create_app(
             db.log_event("download_denied", token=token, ip=ip, detail="missing_file")
             raise HTTPException(404, "File missing from storage")
 
+        # bump count then hand the file back - audit after so we have a trail
         db.increment_download(token)
         db.log_event(
             "download_success",
@@ -311,7 +317,7 @@ def create_app(
     async def health():
         return {"status": "ok"}
 
-    # Expose for tests
+    # stash bits on state so tests can poke the db / limiter
     application.state.db = db
     application.state.storage = storage
     application.state.rate_limiter = rate_limiter

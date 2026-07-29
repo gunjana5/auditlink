@@ -41,6 +41,7 @@ def _upload(
     expiry_hours: int = 24,
     max_downloads: int = 3,
 ):
+    # helper - always ask for json so we get the token back cleanly
     return client.post(
         "/upload",
         files={"file": (filename, BytesIO(content), "text/plain")},
@@ -99,7 +100,7 @@ def test_expired_share_denied(client: TestClient, tmp_path: Path):
     app = create_app(storage_dir=storage, db_path=tmp_path / "exp.db", audit_token="")
     with TestClient(app) as c:
         token = _upload(c).json()["token"]
-        # Backdate expiry
+        # cheat the clock - shove expires_at into the past
         past = to_iso(utc_now() - timedelta(hours=1))
         with app.state.db.connect() as conn:
             conn.execute(
@@ -129,6 +130,7 @@ def test_max_downloads(client: TestClient):
 
 
 def test_file_stored_with_random_name(client: TestClient):
+    # on-disk name must not match the upload name
     token = _upload(client, filename="report.pdf").json()["token"]
     share = client.app.state.db.get_share(token)
     assert share is not None
@@ -158,6 +160,7 @@ def test_passphrase_hash_roundtrip():
 
 
 def test_audit_token_protection(tmp_path: Path):
+    # when AUDIT_TOKEN is set the endpoint should 401 without it
     app = create_app(
         storage_dir=tmp_path / "s",
         db_path=tmp_path / "a.db",

@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator, Optional
 
+# sqlite - simple, no server to run for a portfolio demo
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS shares (
     token TEXT PRIMARY KEY,
@@ -42,6 +43,7 @@ def utc_now() -> datetime:
 
 
 def to_iso(dt: datetime) -> str:
+    # always store utc iso strings - easier than dealing with naive datetimes later
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc).isoformat()
@@ -165,6 +167,7 @@ class Database:
         ip: Optional[str] = None,
         detail: Optional[str] = None,
     ) -> None:
+        # append-only - we never update / delete audit rows
         with self.connect() as conn:
             conn.execute(
                 """
@@ -175,6 +178,7 @@ class Database:
             )
 
     def recent_audit(self, limit: int = 100) -> list[dict]:
+        # newest first for the api
         with self.connect() as conn:
             rows = conn.execute(
                 """

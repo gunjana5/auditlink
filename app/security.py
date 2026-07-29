@@ -9,6 +9,7 @@ import re
 import secrets
 from pathlib import Path
 
+# pbkdf2 iters - bit high but fine for infrequent passphrase checks
 PBKDF2_ITERATIONS = 260_000
 SALT_BYTES = 16
 
@@ -63,6 +64,7 @@ def resolve_under_storage(storage_dir: Path, stored_name: str) -> Path:
 
     storage_root = storage_dir.resolve()
     target = (storage_root / stored_name).resolve()
+    # belt and braces after resolve() in case something weird slips through
     if not str(target).startswith(str(storage_root) + os.sep) and target != storage_root:
         raise ValueError("Path escapes storage root")
     return target

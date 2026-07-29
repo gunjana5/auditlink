@@ -1,4 +1,4 @@
-{# download.html - /d/{token} page; passphrase form if needed #}
+{# /d/{token} page - passphrase form if needed #}
 {% extends "base.html" %}
 {% block title %}auditlink - Download{% endblock %}
 {% block content %}
@@ -46,6 +46,7 @@
   {% endif %}
 </section>
 {% if not expired %}
+{# same countdown trick as the result page - duplicated, oh well #}
 <script>
 (function () {
   var el = document.getElementById("expiry-countdown");

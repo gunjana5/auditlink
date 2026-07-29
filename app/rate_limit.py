@@ -15,6 +15,7 @@ class RateLimiter:
         self._lock = threading.Lock()
 
     def allow(self, key: str) -> bool:
+        # sliding window per ip - drop timestamps older than the window
         now = time.monotonic()
         with self._lock:
             q = self._hits[key]
@@ -27,5 +28,6 @@ class RateLimiter:
             return True
 
     def reset(self) -> None:
+        # mainly for tests
         with self._lock:
             self._hits.clear()

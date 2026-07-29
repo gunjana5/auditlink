@@ -1,3 +1,4 @@
+/* teal + dark slate - kept the palette small on purpose */
 :root {
   --bg-0: #0b1215;
   --bg-1: #121c21;
@@ -42,6 +43,7 @@ a:hover {
   text-decoration: underline;
 }
 
+/* centre column - not full width on desktop */
 .shell {
   width: min(var(--max), calc(100% - 2rem));
   margin: 0 auto;
@@ -144,6 +146,7 @@ input:focus {
   gap: 1rem;
 }
 
+/* stack expiry / max downloads on narrow screens */
 @media (max-width: 560px) {
   .row {
     grid-template-columns: 1fr;
@@ -213,6 +216,7 @@ input:focus {
   word-break: break-all;
 }
 
+/* dashed box for the share url - pulse so it stands out a bit */
 .link-box {
   margin: 1rem 0 1.25rem;
   padding: 0.85rem 1rem;
