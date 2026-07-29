@@ -50,13 +50,36 @@
     </div>
   </div>
   <div class="actions">
-    <button class="btn" type="button" onclick="navigator.clipboard.writeText(document.getElementById('share-url').textContent.trim())">Copy share link</button>
-    <button class="btn btn-ghost" type="button" onclick="navigator.clipboard.writeText(document.getElementById('manage-url').textContent.trim())">Copy manage link</button>
+    <button class="btn" type="button" data-copy="share-url">Copy share link</button>
+    <button class="btn btn-ghost" type="button" data-copy="manage-url">Copy manage link</button>
     <a class="btn btn-ghost" href="/">Share another</a>
   </div>
 </section>
 <script>
 (function () {
+  // brief button flash after clipboard - custody handoff, not a toast pile
+  function flashCopy(btn, ok) {
+    var label = btn.getAttribute("data-label") || btn.textContent;
+    btn.setAttribute("data-label", label);
+    btn.textContent = ok ? "Copied" : "Copy failed";
+    setTimeout(function () { btn.textContent = label; }, 1600);
+  }
+
+  document.querySelectorAll("[data-copy]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var el = document.getElementById(btn.getAttribute("data-copy"));
+      if (!el || !navigator.clipboard) {
+        flashCopy(btn, false);
+        return;
+      }
+      navigator.clipboard.writeText(el.textContent.trim()).then(function () {
+        flashCopy(btn, true);
+      }).catch(function () {
+        flashCopy(btn, false);
+      });
+    });
+  });
+
   var el = document.getElementById("expiry-countdown");
   if (!el) return;
   // iso string from the server - Date.parse handles the +00:00

@@ -1,4 +1,4 @@
-# drop blobs for expired / revoked shares - audit rows stay
+# drop blobs for expired / revoked / exhausted shares - audit rows stay
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from app.security import resolve_under_storage
 
 
 def cleanup_expired(storage: Path, db: Database) -> int:
-    """Delete on-disk blobs for expired or revoked shares. Returns how many removed."""
+    """Delete on-disk blobs for expired, revoked, or exhausted shares. Returns how many removed."""
     removed = 0
     for share in db.list_cleanup_candidates():
         if not share.stored_name:

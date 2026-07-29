@@ -16,7 +16,7 @@ layout in my head
 app/main.py - routes only. create_app() so tests can pass tmp storage + db
 app/security.py - tokens, pbkdf2, sanitize display name, resolve_under_storage, file_sha256, NoopScanner
 app/db.py - sqlite shares + audit_log, Share status helpers, audit filters/counts
-app/cleanup.py - drop blobs for expired/revoked shares
+app/cleanup.py - drop blobs for expired/revoked/exhausted shares
 app/rate_limit.py - sliding window deque per ip, in process ram
 app/templates/ - upload / result / download / manage / ops, extends base.html
 storage/ - gitignored blobs. random hex names. original filename only in the db
@@ -57,7 +57,7 @@ swap in clamav / clamd later without rewriting routes. do not pretend we scan ma
 
 cleanup
 
-cleanup_expired() deletes blobs for expired or revoked shares, clears stored_name, logs cleanup.
+cleanup_expired() deletes blobs for expired, revoked, or exhausted (download_count >= max_downloads) shares that still have a stored_name, clears stored_name, logs cleanup.
 runs once on startup (unless tests pass run_cleanup_on_start=False) and from POST /ops/cleanup.
 share row stays so audit still joins on token.
 
@@ -74,7 +74,7 @@ RateLimiter is 20 hits / 60s / ip by default (tests bump it). pure memory + thre
 
 why max downloads
 
-expiry alone still lets a shared link get hoovered forever inside the window. download_count vs max_downloads is a cheap second brake. once exhausted we 410 and log download_denied with max_downloads_reached. not cryptographic, just "stop after n pulls"
+expiry alone still lets a shared link get hoovered forever inside the window. download_count vs max_downloads is a cheap second brake. early exhausted check is for the obvious case; try_increment_download does an atomic UPDATE ... WHERE download_count < max_downloads so concurrent pulls can't overshoot. False -> 410 + max_downloads_reached. not cryptographic, just "stop after n pulls"
 
 
 passphrase
@@ -88,11 +88,11 @@ download checks (order matters a bit)
 2. share exists
 3. revoked?
 4. expired? (410 + expired event)
-5. downloads exhausted?
+5. downloads exhausted? (fast path)
 6. passphrase if required
 7. resolve path + file still on disk
 8. sha256 match
-9. increment + download_success + FileResponse
+9. try_increment_download (atomic) - False = exhausted; then download_success + FileResponse
 
 files are only read/written as bytes. never open them with a shell or import them as code. "dont exec uploads" is the whole point tbh
 

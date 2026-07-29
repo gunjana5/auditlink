@@ -392,8 +392,16 @@ def create_app(
                 )
                 raise HTTPException(409, "File integrity check failed")
 
-        # bump count then hand the file back - audit after so we have a trail
-        db.increment_download(token)
+        # atomic bump - races against concurrent downloads land as exhausted, not double-count
+        if not db.try_increment_download(token):
+            db.log_event(
+                "download_denied",
+                token=token,
+                ip=ip,
+                detail="max_downloads_reached",
+            )
+            raise HTTPException(410, "Download limit reached for this share")
+
         db.log_event(
             "download_success",
             token=token,

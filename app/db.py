@@ -222,7 +222,7 @@ class Database:
             )
 
     def list_cleanup_candidates(self, now: Optional[datetime] = None) -> list[Share]:
-        # expired or revoked - blobs can go; row stays for audit join
+        # expired, revoked, or exhausted with a blob still on disk - row stays for audit
         now_iso = to_iso(now or utc_now())
         with self.connect() as conn:
             rows = conn.execute(
@@ -230,6 +230,10 @@ class Database:
                 SELECT * FROM shares
                 WHERE revoked_at IS NOT NULL
                    OR expires_at <= ?
+                   OR (
+                        download_count >= max_downloads
+                        AND stored_name != ''
+                   )
                 """,
                 (now_iso,),
             ).fetchall()
@@ -243,8 +247,23 @@ class Database:
                 (token,),
             )
 
+    def try_increment_download(self, token: str) -> bool:
+        # atomic vs max_downloads + revoked - True only if we actually bumped the count
+        with self.connect() as conn:
+            cur = conn.execute(
+                """
+                UPDATE shares
+                SET download_count = download_count + 1
+                WHERE token = ?
+                  AND download_count < max_downloads
+                  AND revoked_at IS NULL
+                """,
+                (token,),
+            )
+            return cur.rowcount > 0
+
     def increment_download(self, token: str) -> None:
-        # called just before FileResponse - count wins even if client aborts mid-stream
+        # unconditional bump - prefer try_increment_download on the download path
         with self.connect() as conn:
             conn.execute(
                 """
