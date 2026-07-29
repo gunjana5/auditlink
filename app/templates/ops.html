@@ -1,0 +1,98 @@
+{# ops desk - gated by AUDIT_TOKEN when set #}
+{% extends "base.html" %}
+{% block title %}auditlink - Ops{% endblock %}
+{% block shell_class %}shell-wide{% endblock %}
+{% block content %}
+
+{% if locked %}
+<section class="panel">
+  <h2>Ops desk</h2>
+  <p class="lede">AUDIT_TOKEN is set. Enter it to open the audit console.</p>
+  <form action="/ops/unlock" method="post">
+    <label>
+      <strong>Audit token</strong>
+      <input type="password" name="key" required autocomplete="current-password" />
+    </label>
+    <button class="btn" type="submit">Unlock</button>
+  </form>
+</section>
+{% else %}
+
+{% if demo_open %}
+<div class="banner-warn">
+  AUDIT_TOKEN unset - ops desk is open. Demo only. Set the env var before anything public.
+</div>
+{% endif %}
+
+<section class="panel ops-panel">
+  <div class="panel-head">
+    <h2>Ops desk</h2>
+    <form action="/ops/cleanup" method="post" class="inline-form">
+      <button class="btn btn-ghost btn-tiny" type="submit">Cleanup blobs</button>
+    </form>
+  </div>
+  <p class="lede">Append-only audit trail. Filter by event or token prefix.</p>
+
+  <div class="counts">
+    {% for key in ["upload", "download_success", "download_denied", "rate_limited", "revoked", "hash_mismatch", "cleanup", "expired"] %}
+      <div class="count-pill">
+        <span class="count-n">{{ counts.get(key, 0) }}</span>
+        <span class="count-k">{{ key }}</span>
+      </div>
+    {% endfor %}
+  </div>
+
+  <form class="ops-filters" method="get" action="/ops">
+    <label>
+      <strong>Event</strong>
+      <select name="event_type">
+        <option value="" {% if not event_type %}selected{% endif %}>all</option>
+        {% for t in ["upload", "download_success", "download_denied", "rate_limited", "revoked", "hash_mismatch", "cleanup", "expired"] %}
+          <option value="{{ t }}" {% if event_type == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <strong>Token prefix</strong>
+      <input type="text" name="token_prefix" value="{{ token_prefix }}" placeholder="first chars…" />
+    </label>
+    <label>
+      <strong>Limit</strong>
+      <input type="number" name="limit" min="1" max="500" value="{{ limit }}" />
+    </label>
+    <button class="btn" type="submit">Filter</button>
+  </form>
+
+  <div class="ops-table-wrap">
+    <table class="ops-table">
+      <thead>
+        <tr>
+          <th>id</th>
+          <th>when</th>
+          <th>event</th>
+          <th>token</th>
+          <th>ip</th>
+          <th>detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in events %}
+        <tr>
+          <td>{{ e.id }}</td>
+          <td class="mono-tight">{{ e.created_at }}</td>
+          <td><span class="badge badge-event">{{ e.event_type }}</span></td>
+          <td class="mono-tight">{{ e.token or "-" }}</td>
+          <td class="mono-tight">{{ e.ip or "-" }}</td>
+          <td class="mono-tight">{{ e.detail or "-" }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="empty-row">No events yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

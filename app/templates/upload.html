@@ -4,13 +4,13 @@
 {% block content %}
 <section class="panel">
   <h2>Share a file</h2>
-  <p class="lede">Tokenized link, optional passphrase, expiry, and download cap. Every access lands in the audit log.</p>
+  <p class="lede">Tokenised link, optional passphrase, expiry, and download cap. SHA-256 on upload. Every access lands in the audit log.</p>
   {# multipart so the file bytes ride along with the form fields #}
   <form action="/upload" method="post" enctype="multipart/form-data">
     <label>
       <strong>File</strong>
       <input type="file" name="file" required />
-      <span class="hint">Max {{ max_upload_mb }} MB · stored outside the web root</span>
+      <span class="hint">Max {{ max_upload_mb }} MB · stored outside the web root · hashed on the way in</span>
     </label>
     <label>
       <strong>Passphrase</strong> <span class="hint">(optional)</span>

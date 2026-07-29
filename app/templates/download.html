@@ -3,34 +3,37 @@
 {% block title %}auditlink - Download{% endblock %}
 {% block content %}
 <section class="panel">
-  <h2>Download</h2>
+  <div class="panel-head">
+    <h2>Download</h2>
+    {% if status == "live" %}
+      <span class="badge badge-ok">live</span>
+    {% elif status == "revoked" %}
+      <span class="badge badge-danger">revoked</span>
+    {% elif status == "expired" %}
+      <span class="badge badge-danger">expired</span>
+    {% else %}
+      <span class="badge badge-danger">exhausted</span>
+    {% endif %}
+  </div>
   <p class="lede">{{ filename }}</p>
   <div class="meta">
+    <div>
+      <span class="k">SHA-256</span>
+      <span class="v mono-tight" title="{{ content_sha256 }}">{{ sha_short }}…</span>
+    </div>
     <div>
       <span class="k">Expires</span>
       <span class="v">
         {{ expires_at }}
-        {% if not expired %}
+        {% if status == "live" %}
           <span class="countdown" id="expiry-countdown" data-expires-at="{{ expires_at }}"></span>
         {% endif %}
       </span>
     </div>
     <div><span class="k">Downloads left</span><span class="v">{{ downloads_left }}</span></div>
-    <div>
-      <span class="k">Status</span>
-      <span class="v">
-        {% if expired %}
-          <span class="badge badge-danger">expired</span>
-        {% elif exhausted %}
-          <span class="badge badge-danger">limit reached</span>
-        {% else %}
-          <span class="badge badge-ok">available</span>
-        {% endif %}
-      </span>
-    </div>
   </div>
 
-  {% if expired or exhausted %}
+  {% if revoked or expired or exhausted %}
     <p class="lede">This share is no longer available.</p>
     <a class="btn btn-ghost" href="/">Back home</a>
   {% else %}
@@ -45,8 +48,7 @@
     </form>
   {% endif %}
 </section>
-{% if not expired %}
-{# same countdown trick as the result page - duplicated, oh well #}
+{% if status == "live" %}
 <script>
 (function () {
   var el = document.getElementById("expiry-countdown");
@@ -66,7 +68,6 @@
     var h = Math.floor(totalSec / 3600);
     var m = Math.floor((totalSec % 3600) / 60);
     var s = totalSec % 60;
-    // once past an hour just refresh every minute - no need for second precision
     if (h >= 1) {
       el.textContent = " · expires in " + pad(h) + "h " + pad(m) + "m";
       setTimeout(tick, 60 * 1000);

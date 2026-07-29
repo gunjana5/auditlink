@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import timedelta
 from io import BytesIO
 from pathlib import Path
@@ -9,6 +10,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from app.cleanup import cleanup_expired
 from app.db import to_iso, utc_now
 from app.main import create_app
 from app.security import (
@@ -29,6 +31,7 @@ def client(tmp_path: Path):
         db_path=tmp_path / "test.db",
         audit_token="",  # open audit for most tests
         rate_limit_max=1000,
+        run_cleanup_on_start=False,
     )
     with TestClient(app) as c:
         yield c
@@ -62,6 +65,9 @@ def test_upload_then_download(client: TestClient):
     body = up.json()
     token = body["token"]
     assert body["requires_passphrase"] is False
+    assert body["content_sha256"] == hashlib.sha256(b"secret payload").hexdigest()
+    assert body["manage_token"]
+    assert "/m/" in body["manage_url"]
 
     page = client.get(f"/d/{token}")
     assert page.status_code == 200
@@ -100,7 +106,12 @@ def test_expired_share_denied(client: TestClient, tmp_path: Path):
     # build app with access to db for backdating
     storage = tmp_path / "storage2"
     storage.mkdir()
-    app = create_app(storage_dir=storage, db_path=tmp_path / "exp.db", audit_token="")
+    app = create_app(
+        storage_dir=storage,
+        db_path=tmp_path / "exp.db",
+        audit_token="",
+        run_cleanup_on_start=False,
+    )
     with TestClient(app) as c:
         token = _upload(c).json()["token"]
         # cheat the clock - shove expires_at into the past
@@ -170,6 +181,7 @@ def test_audit_token_protection(tmp_path: Path):
         storage_dir=tmp_path / "s",
         db_path=tmp_path / "a.db",
         audit_token="super-secret",
+        run_cleanup_on_start=False,
     )
     with TestClient(app) as c:
         assert c.get("/api/audit").status_code == 401
@@ -184,6 +196,7 @@ def test_rate_limit_logs_event(tmp_path: Path):
         storage_dir=tmp_path / "s",
         db_path=tmp_path / "r.db",
         rate_limit_max=2,
+        run_cleanup_on_start=False,
     )
     with TestClient(app) as c:
         token = _upload(c, max_downloads=10).json()["token"]
@@ -200,3 +213,112 @@ def test_home_renders(client: TestClient):
     assert r.status_code == 200
     assert "auditlink" in r.text
     assert "Generate link" in r.text
+
+
+def test_hash_mismatch_denies(client: TestClient):
+    body = _upload(client, content=b"clean bytes").json()
+    token = body["token"]
+    share = client.app.state.db.get_share(token)
+    assert share is not None
+    path = resolve_under_storage(client.app.state.storage, share.stored_name)
+    path.write_bytes(b"tampered")
+
+    resp = client.post(f"/d/{token}")
+    assert resp.status_code == 409
+    events = client.get("/api/audit").json()["events"]
+    assert any(e["event_type"] == "hash_mismatch" for e in events)
+    assert any(
+        e["event_type"] == "download_denied" and e["detail"] == "hash_mismatch"
+        for e in events
+    )
+
+
+def test_manage_revoke(client: TestClient):
+    body = _upload(client, content=b"revoke me").json()
+    token = body["token"]
+    manage = body["manage_token"]
+
+    page = client.get(f"/m/{manage}")
+    assert page.status_code == 200
+    assert "Manage share" in page.text
+
+    revoked = client.post(
+        f"/m/{manage}/revoke",
+        headers={"Accept": "application/json"},
+    )
+    assert revoked.status_code == 200
+    assert revoked.json()["status"] == "revoked"
+
+    share = client.app.state.db.get_share(token)
+    assert share is not None
+    assert share.is_revoked()
+    assert share.stored_name == ""
+
+    dl = client.post(f"/d/{token}")
+    assert dl.status_code == 410
+    events = client.get("/api/audit").json()["events"]
+    assert any(e["event_type"] == "revoked" for e in events)
+
+
+def test_ops_desk_open_when_no_token(client: TestClient):
+    _upload(client)
+    page = client.get("/ops")
+    assert page.status_code == 200
+    assert "Ops desk" in page.text
+    assert "demo only" in page.text.lower() or "Demo only" in page.text
+
+
+def test_ops_requires_token_when_set(tmp_path: Path):
+    app = create_app(
+        storage_dir=tmp_path / "s",
+        db_path=tmp_path / "ops.db",
+        audit_token="desk-secret",
+        run_cleanup_on_start=False,
+    )
+    with TestClient(app) as c:
+        locked = c.get("/ops")
+        assert locked.status_code == 200
+        assert "Unlock" in locked.text
+
+        assert c.get("/api/audit").status_code == 401
+        assert c.post("/ops/cleanup").status_code == 401
+
+        unlock = c.post("/ops/unlock", data={"key": "desk-secret"}, follow_redirects=False)
+        assert unlock.status_code == 303
+
+        desk = c.get("/ops")
+        assert desk.status_code == 200
+        assert "Unlock" not in desk.text
+        assert "Cleanup blobs" in desk.text
+
+
+def test_cleanup_removes_expired_blob(client: TestClient):
+    body = _upload(client, content=b"soon gone").json()
+    token = body["token"]
+    share = client.app.state.db.get_share(token)
+    assert share is not None
+    path = resolve_under_storage(client.app.state.storage, share.stored_name)
+    assert path.is_file()
+
+    past = to_iso(utc_now() - timedelta(hours=1))
+    with client.app.state.db.connect() as conn:
+        conn.execute(
+            "UPDATE shares SET expires_at = ? WHERE token = ?",
+            (past, token),
+        )
+
+    removed = cleanup_expired(client.app.state.storage, client.app.state.db)
+    assert removed == 1
+    assert not path.exists()
+    refreshed = client.app.state.db.get_share(token)
+    assert refreshed is not None
+    assert refreshed.stored_name == ""
+    events = client.get("/api/audit").json()["events"]
+    assert any(e["event_type"] == "cleanup" for e in events)
+
+
+def test_security_headers_present(client: TestClient):
+    r = client.get("/")
+    assert r.headers.get("X-Content-Type-Options") == "nosniff"
+    assert r.headers.get("X-Frame-Options") == "DENY"
+    assert "Content-Security-Policy" in r.headers

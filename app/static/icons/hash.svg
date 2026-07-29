@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- hash / fingerprint block for sha256 -->
+  <rect x="10" y="10" width="18" height="18" rx="2" fill="#2ec4b6"/>
+  <rect x="36" y="10" width="18" height="18" rx="2" fill="rgba(224,169,109,0.85)"/>
+  <rect x="10" y="36" width="18" height="18" rx="2" fill="rgba(125,206,160,0.9)"/>
+  <rect x="36" y="36" width="18" height="18" rx="2" stroke="#e07a6d" stroke-width="3"/>
+  <path d="M19 19h0M45 19h0M19 45h0" stroke="#0b1215" stroke-width="4" stroke-linecap="round"/>
+</svg>

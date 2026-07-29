@@ -3,17 +3,28 @@
 {% block title %}auditlink - Link ready{% endblock %}
 {% block content %}
 <section class="panel">
-  <h2>Link ready</h2>
-  <p class="lede">Copy this URL. It will stop working after expiry or when the download budget is spent.</p>
-  {# id used by the copy button below #}
+  <div class="panel-head">
+    <h2>Link ready</h2>
+    <span class="badge badge-ok">live</span>
+  </div>
+  <p class="lede">Give recipients the share link. Keep the manage link private - it can revoke the share.</p>
+
+  <p class="label-kicker">Share link</p>
   <div class="link-box" id="share-url">{{ share_url }}</div>
+
+  <p class="label-kicker">Manage link <span class="hint">(uploader only)</span></p>
+  <div class="link-box link-box-warn" id="manage-url">{{ manage_url }}</div>
+
   <div class="meta">
     <div><span class="k">File</span><span class="v">{{ filename }}</span></div>
+    <div>
+      <span class="k">SHA-256</span>
+      <span class="v mono-tight" title="{{ content_sha256 }}">{{ sha_short }}…</span>
+    </div>
     <div>
       <span class="k">Expires</span>
       <span class="v">
         {{ expires_at }}
-        {# tiny countdown - updates in-page so you can see it ticking #}
         <span class="countdown" id="expiry-countdown" data-expires-at="{{ expires_at }}"></span>
       </span>
     </div>
@@ -30,7 +41,8 @@
     </div>
   </div>
   <div class="actions">
-    <button class="btn" type="button" onclick="navigator.clipboard.writeText(document.getElementById('share-url').textContent.trim())">Copy link</button>
+    <button class="btn" type="button" onclick="navigator.clipboard.writeText(document.getElementById('share-url').textContent.trim())">Copy share link</button>
+    <button class="btn btn-ghost" type="button" onclick="navigator.clipboard.writeText(document.getElementById('manage-url').textContent.trim())">Copy manage link</button>
     <a class="btn btn-ghost" href="/">Share another</a>
   </div>
 </section>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- padlock for passphrase / sealed packet -->
+  <rect x="16" y="28" width="32" height="26" rx="4" fill="rgba(46,196,182,0.15)" stroke="#2ec4b6" stroke-width="3"/>
+  <path d="M24 28v-6a8 8 0 0 1 16 0v6" stroke="#e0a96d" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="32" cy="40" r="3" fill="#e6eef2"/>
+  <path d="M32 43v5" stroke="#e6eef2" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

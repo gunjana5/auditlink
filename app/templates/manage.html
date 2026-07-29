@@ -1,0 +1,53 @@
+{# uploader-only manage page - revoke lives here #}
+{% extends "base.html" %}
+{% block title %}auditlink - Manage{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>Manage share</h2>
+    {% if status == "live" %}
+      <span class="badge badge-ok">live</span>
+    {% elif status == "revoked" %}
+      <span class="badge badge-danger">revoked</span>
+    {% elif status == "expired" %}
+      <span class="badge badge-danger">expired</span>
+    {% else %}
+      <span class="badge badge-danger">exhausted</span>
+    {% endif %}
+  </div>
+  <p class="lede">Download token is for the recipient. This manage link stays with you.</p>
+
+  <div class="meta">
+    <div><span class="k">File</span><span class="v">{{ filename }}</span></div>
+    <div>
+      <span class="k">SHA-256</span>
+      <span class="v mono-tight" title="{{ content_sha256 }}">{{ sha_short }}…</span>
+    </div>
+    <div><span class="k">Share link</span><span class="v mono-tight">{{ share_url }}</span></div>
+    <div><span class="k">Expires</span><span class="v">{{ expires_at }}</span></div>
+    <div><span class="k">Downloads</span><span class="v">{{ download_count }} / {{ max_downloads }} ({{ downloads_left }} left)</span></div>
+    <div>
+      <span class="k">Passphrase</span>
+      <span class="v">
+        {% if requires_passphrase %}
+          <span class="badge badge-warn">required</span>
+        {% else %}
+          <span class="badge badge-ok">none</span>
+        {% endif %}
+      </span>
+    </div>
+  </div>
+
+  {% if revoked %}
+    <p class="lede">Revoked. Blob deleted. Audit row keeps the trail.</p>
+    <a class="btn btn-ghost" href="/">Back home</a>
+  {% else %}
+    <form action="/m/{{ manage_token }}/revoke" method="post" onsubmit="return confirm('Revoke this share and delete the file?');">
+      <div class="actions">
+        <button class="btn btn-danger" type="submit">Revoke share</button>
+        <a class="btn btn-ghost" href="/">Back home</a>
+      </div>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

@@ -7,19 +7,61 @@
   <title>{% block title %}auditlink{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  {# ibm plex - mono for the meta rows looks a bit more "ops" #}
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  {# sora for the brand punch; plex mono for ops rows #}
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-  <div class="shell">
-    <header class="brand">
-      <div class="brand-mark" aria-hidden="true"></div>
-      <h1>auditlink</h1>
-      <span>secure share · audit trail</span>
-    </header>
-    {% block content %}{% endblock %}
-    <p class="footer">Portfolio demo - not production hardened. Files are never executed server-side.</p>
+  {# custody rules on a loop - same trick as a ticker tape #}
+  <div class="custody-tape" aria-hidden="true">
+    <div class="tape-track">
+      <span>bytes only - never exec</span>
+      <span>sha-256 on the way in</span>
+      <span>append-only audit trail</span>
+      <span>revoke when the link leaks</span>
+      <span>tokenised paths not /file/1</span>
+      <span>demo - not dropbox</span>
+      <span>bytes only - never exec</span>
+      <span>sha-256 on the way in</span>
+      <span>append-only audit trail</span>
+      <span>revoke when the link leaks</span>
+      <span>tokenised paths not /file/1</span>
+      <span>demo - not dropbox</span>
+    </div>
   </div>
+
+  <div class="page">
+    <div class="shell {% block shell_class %}{% endblock %}">
+      <header class="brand">
+        <a class="brand-lockup" href="/">
+          <div class="brand-mark" aria-hidden="true">
+            <img src="/static/icons/seal.svg" alt="" />
+          </div>
+          <div class="brand-words">
+            <span class="brand-kicker">chain of custody</span>
+            <h1>auditlink</h1>
+          </div>
+        </a>
+        <p class="brand-tag">secure share · hashed · audited</p>
+        <nav class="brand-nav" aria-label="primary">
+          <a href="/">upload</a>
+          <a href="/ops">ops</a>
+        </nav>
+      </header>
+
+      <div class="stamp-row" aria-hidden="true">
+        <span class="stamp stamp-teal">bytes only</span>
+        <span class="stamp stamp-amber">not dropbox</span>
+        <span class="stamp stamp-ok">append-only</span>
+      </div>
+
+      {% block features %}{% endblock %}
+      {% block content %}{% endblock %}
+      <p class="footer">Portfolio demo - not production hardened. Files are never executed server-side.</p>
+    </div>
+  </div>
+
+  {# big faded seal in the corner - atmosphere, not a card #}
+  <img class="corner-art" src="/static/icons/seal.svg" alt="" aria-hidden="true" />
 </body>
 </html>

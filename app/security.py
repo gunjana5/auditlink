@@ -8,6 +8,7 @@ import os
 import re
 import secrets
 from pathlib import Path
+from typing import Protocol
 
 # pbkdf2 iters - bit high but fine for infrequent passphrase checks
 PBKDF2_ITERATIONS = 260_000
@@ -58,6 +59,24 @@ def verify_passphrase(passphrase: str, salt_hex: str, hash_hex: str) -> bool:
     return hmac.compare_digest(candidate, hash_hex)
 
 
+def file_sha256(path: Path) -> str:
+    # stream so we don't load the whole blob into ram
+    hasher = hashlib.sha256()
+    with path.open("rb") as fh:
+        while True:
+            chunk = fh.read(64 * 1024)
+            if not chunk:
+                break
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def short_hash(full: str | None, n: int = 12) -> str:
+    if not full:
+        return "-"
+    return full[:n]
+
+
 def resolve_under_storage(storage_dir: Path, stored_name: str) -> Path:
     # reject .. / separators; blob path must stay under storage/
     if not stored_name or stored_name != Path(stored_name).name:
@@ -71,3 +90,14 @@ def resolve_under_storage(storage_dir: Path, stored_name: str) -> Path:
     if not str(target).startswith(str(storage_root) + os.sep) and target != storage_root:
         raise ValueError("Path escapes storage root")
     return target
+
+
+class Scanner(Protocol):
+    # hook point for clamav / clamd - demo uses NoopScanner
+    def scan(self, path: Path) -> None: ...
+
+
+class NoopScanner:
+    def scan(self, path: Path) -> None:
+        # architecture only - never pretends we scanned for malware
+        return
