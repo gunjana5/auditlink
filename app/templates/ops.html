@@ -10,7 +10,10 @@
     <h2>Ops desk</h2>
     <span class="badge badge-warn">locked</span>
   </div>
-  <p class="lede">AUDIT_TOKEN is set. Enter it to open the audit console.</p>
+  <p class="lede">
+    AUDIT_TOKEN is set. Enter it to open the audit console.
+    <button type="button" class="tip-btn" data-tip="same secret as /api/audit - unlock sets an httponly cookie so the browser can keep browsing /ops" aria-label="about unlock">i</button>
+  </p>
   <form action="/ops/unlock" method="post">
     <label>
       <strong>Audit token</strong>
@@ -24,19 +27,23 @@
 {% if demo_open %}
 <div class="banner-warn">
   AUDIT_TOKEN unset - ops desk is open. Demo only. Set the env var before anything public.
+  <button type="button" class="tip-btn" data-tip="open on purpose for demos / pytest - anything public must set AUDIT_TOKEN or the trail leaks" aria-label="about open mode">i</button>
 </div>
 {% endif %}
 
 <section class="panel ops-panel">
   <div class="panel-head">
-    <h2>Ops desk</h2>
+    <h2>
+      Ops desk
+      <button type="button" class="tip-btn" data-tip="append-only audit trail - filter by event or token prefix, cleanup drops expired blobs" aria-label="about ops">i</button>
+    </h2>
     <form action="/ops/cleanup" method="post" class="inline-form">
       <button class="btn btn-ghost btn-tiny" type="submit">Cleanup blobs</button>
+      <button type="button" class="tip-btn" data-tip="deletes on-disk blobs for expired or revoked shares - audit rows stay" aria-label="about cleanup">i</button>
     </form>
   </div>
   <p class="lede">Append-only audit trail. Filter by event or token prefix.</p>
 
-  {# quick pulse of event volume - same keys as the filter dropdown #}
   <div class="counts">
     {% for key in ["upload", "download_success", "download_denied", "rate_limited", "revoked", "hash_mismatch", "cleanup", "expired"] %}
       <div class="count-pill">
@@ -48,7 +55,10 @@
 
   <form class="ops-filters" method="get" action="/ops">
     <label>
-      <strong>Event</strong>
+      <strong class="label-with-tip">
+        Event
+        <button type="button" class="tip-btn" data-tip="narrow the table to one event type - leave as all to see the full trail" aria-label="about event filter">i</button>
+      </strong>
       <select name="event_type">
         <option value="" {% if not event_type %}selected{% endif %}>all</option>
         {% for t in ["upload", "download_success", "download_denied", "rate_limited", "revoked", "hash_mismatch", "cleanup", "expired"] %}
@@ -57,7 +67,10 @@
       </select>
     </label>
     <label>
-      <strong>Token prefix</strong>
+      <strong class="label-with-tip">
+        Token prefix
+        <button type="button" class="tip-btn" data-tip="paste the first few chars of a share token to follow just that link's events" aria-label="about token filter">i</button>
+      </strong>
       <input type="text" name="token_prefix" value="{{ token_prefix }}" placeholder="first chars…" />
     </label>
     <label>

@@ -33,22 +33,34 @@
   {# multipart so the file bytes ride along with the form fields #}
   <form action="/upload" method="post" enctype="multipart/form-data">
     <label>
-      <strong>File</strong>
+      <strong class="label-with-tip">
+        File
+        <button type="button" class="tip-btn" data-tip="any small file is fine for demos - we stream it to storage with a random name, never the client path" aria-label="about file">i</button>
+      </strong>
       <input type="file" name="file" required />
       <span class="hint">Max {{ max_upload_mb }} MB · stored outside the web root · hashed on the way in</span>
     </label>
     <label>
-      <strong>Passphrase</strong> <span class="hint">(optional)</span>
-      {# leave blank = open link; hashed server-side if set #}
+      <strong class="label-with-tip">
+        Passphrase
+        <button type="button" class="tip-btn" data-tip="optional. blank = open link. if set we store salt+hash only (pbkdf2) - never the plaintext" aria-label="about passphrase">i</button>
+      </strong>
+      <span class="hint">(optional)</span>
       <input type="password" name="passphrase" autocomplete="new-password" placeholder="Leave blank for open link" />
     </label>
     <div class="row">
       <label>
-        <strong>Expires in (hours)</strong>
+        <strong class="label-with-tip">
+          Expires in (hours)
+          <button type="button" class="tip-btn" data-tip="after this the share returns 410 - so a leaked link eventually dies on its own" aria-label="about expiry">i</button>
+        </strong>
         <input type="number" name="expiry_hours" min="1" max="720" value="{{ default_expiry_hours }}" />
       </label>
       <label>
-        <strong>Max downloads</strong>
+        <strong class="label-with-tip">
+          Max downloads
+          <button type="button" class="tip-btn" data-tip="second brake on top of expiry - stops the link being hoovered forever inside the window" aria-label="about max downloads">i</button>
+        </strong>
         <input type="number" name="max_downloads" min="1" max="100" value="{{ default_max_downloads }}" />
       </label>
     </div>

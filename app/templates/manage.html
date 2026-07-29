@@ -4,7 +4,10 @@
 {% block content %}
 <section class="panel">
   <div class="panel-head">
-    <h2>Manage share</h2>
+    <h2>
+      Manage share
+      <button type="button" class="tip-btn" data-tip="download token is for them - this manage link stays with you so you can kill the share" aria-label="about manage">i</button>
+    </h2>
     {% if status == "live" %}
       <span class="badge badge-ok">live</span>
     {% elif status == "revoked" %}
@@ -44,7 +47,10 @@
   {% else %}
     <form action="/m/{{ manage_token }}/revoke" method="post" onsubmit="return confirm('Revoke this share and delete the file?');">
       <div class="actions">
-        <button class="btn btn-danger" type="submit">Revoke share</button>
+        <button class="btn btn-danger" type="submit">
+          Revoke share
+        </button>
+        <button type="button" class="tip-btn" data-tip="deletes the blob, marks revoked, logs it - download path then returns 410" aria-label="about revoke">i</button>
         <a class="btn btn-ghost" href="/">Back home</a>
       </div>
     </form>

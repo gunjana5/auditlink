@@ -12,22 +12,17 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-  {# custody rules on a loop - same trick as a ticker tape #}
-  <div class="custody-tape" aria-hidden="true">
-    <div class="tape-track">
-      <span>bytes only - never exec</span>
-      <span>sha-256 on the way in</span>
-      <span>append-only audit trail</span>
-      <span>revoke when the link leaks</span>
-      <span>tokenised paths not /file/1</span>
-      <span>demo - not dropbox</span>
-      <span>bytes only - never exec</span>
-      <span>sha-256 on the way in</span>
-      <span>append-only audit trail</span>
-      <span>revoke when the link leaks</span>
-      <span>tokenised paths not /file/1</span>
-      <span>demo - not dropbox</span>
-    </div>
+  {# static seal strip - not a scrolling ticker (that read too much like the desk) #}
+  <div class="seal-strip" aria-hidden="true">
+    <span>bytes only</span>
+    <span class="seal-dot"></span>
+    <span>never exec</span>
+    <span class="seal-dot"></span>
+    <span>sha-256</span>
+    <span class="seal-dot"></span>
+    <span>append-only trail</span>
+    <span class="seal-dot"></span>
+    <span>demo - not dropbox</span>
   </div>
 
   <div class="page">
@@ -49,10 +44,16 @@
         </nav>
       </header>
 
-      <div class="stamp-row" aria-hidden="true">
-        <span class="stamp stamp-teal">bytes only</span>
-        <span class="stamp stamp-amber">not dropbox</span>
-        <span class="stamp stamp-ok">append-only</span>
+      {# one custody line under brand - replaces the tilted stamp pills #}
+      <div class="custody-bar">
+        <img src="/static/icons/seal.svg" alt="" width="18" height="18" />
+        <span>sealed packet · hashed · audited</span>
+        <button
+          type="button"
+          class="tip-btn"
+          data-tip="poke the teal i next to fields for what that control does - and sometimes why"
+          aria-label="about tips"
+        >i</button>
       </div>
 
       {% block features %}{% endblock %}
@@ -63,5 +64,106 @@
 
   {# big faded seal in the corner - atmosphere, not a card #}
   <img class="corner-art" src="/static/icons/seal.svg" alt="" aria-hidden="true" />
+
+  {# tip pop lives on body so overflow parents dont clip it #}
+  <div id="tip-pop" class="tip-pop" hidden role="tooltip"></div>
+
+  {# first-visit welcome - tell people about the teal i tips #}
+  <div id="welcome-banner" class="welcome-banner" role="dialog" aria-label="welcome" hidden>
+    <div class="welcome-card">
+      <p class="welcome-title">hey</p>
+      <p class="welcome-body">
+        this is a secure share demo - not dropbox. upload a file, get a share link and a private manage link.
+        anywhere you see a small teal <strong>i</strong>, poke it for a plain note on what that bit does.
+        ops is the audit trail.
+      </p>
+      <button type="button" class="welcome-ok" id="welcome-ok">got it</button>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var KEY = "auditlink-welcome-seen-v1";
+    var banner = document.getElementById("welcome-banner");
+    var ok = document.getElementById("welcome-ok");
+    if (banner && ok) {
+      try {
+        if (!localStorage.getItem(KEY)) banner.hidden = false;
+      } catch (e) {
+        banner.hidden = false;
+      }
+      ok.addEventListener("click", function () {
+        banner.hidden = true;
+        try { localStorage.setItem(KEY, "1"); } catch (e) { /* ignore */ }
+      });
+    }
+
+    var pop = document.getElementById("tip-pop");
+    if (!pop) return;
+    var openBtn = null;
+    var PAD = 10;
+    var GAP = 8;
+
+    function place(btn) {
+      var br = btn.getBoundingClientRect();
+      pop.hidden = false;
+      // measure after show so width/height are real
+      var pr = pop.getBoundingClientRect();
+      var top = br.bottom + GAP;
+      var left = br.left;
+      var place = "below";
+      if (top + pr.height > window.innerHeight - PAD) {
+        top = br.top - pr.height - GAP;
+        place = "above";
+      }
+      if (top < PAD) top = PAD;
+      if (left + pr.width > window.innerWidth - PAD) {
+        left = window.innerWidth - pr.width - PAD;
+      }
+      if (left < PAD) left = PAD;
+      pop.style.top = top + "px";
+      pop.style.left = left + "px";
+      pop.className = "tip-pop place-" + place;
+    }
+
+    function close() {
+      pop.hidden = true;
+      pop.textContent = "";
+      if (openBtn) openBtn.classList.remove("is-open");
+      openBtn = null;
+    }
+
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest(".tip-btn");
+      if (btn) {
+        e.preventDefault();
+        e.stopPropagation();
+        var text = btn.getAttribute("data-tip") || "";
+        if (openBtn === btn) {
+          close();
+          return;
+        }
+        if (openBtn) openBtn.classList.remove("is-open");
+        openBtn = btn;
+        btn.classList.add("is-open");
+        pop.textContent = text;
+        place(btn);
+        return;
+      }
+      if (!pop.contains(e.target)) close();
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") close();
+    });
+
+    window.addEventListener("scroll", function () {
+      if (openBtn) place(openBtn);
+    }, true);
+    window.addEventListener("resize", function () {
+      if (openBtn) place(openBtn);
+    });
+  })();
+  </script>
 </body>
 </html>

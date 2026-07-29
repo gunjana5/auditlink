@@ -9,23 +9,31 @@
   </div>
   <p class="lede">Give recipients the share link. Keep the manage link private - it can revoke the share.</p>
 
-  <p class="label-kicker">Share link</p>
+  <p class="label-kicker">
+    Share link
+    <button type="button" class="tip-btn" data-tip="give this to the recipient - /d/token is the download path" aria-label="about share link">i</button>
+  </p>
   <div class="link-box" id="share-url">{{ share_url }}</div>
 
-  <p class="label-kicker">Manage link <span class="hint">(uploader only)</span></p>
+  <p class="label-kicker">
+    Manage link <span class="hint">(uploader only)</span>
+    <button type="button" class="tip-btn" data-tip="keep this - /m/… can revoke and kill the blob. never put it on the public download page" aria-label="about manage link">i</button>
+  </p>
   <div class="link-box link-box-warn" id="manage-url">{{ manage_url }}</div>
 
   <div class="meta">
     <div><span class="k">File</span><span class="v">{{ filename }}</span></div>
     <div>
-      <span class="k">SHA-256</span>
+      <span class="k">
+        SHA-256
+        <button type="button" class="tip-btn" data-tip="digest from upload - we re-check before serving so tamper / bit-rot gets a 409" aria-label="about sha256">i</button>
+      </span>
       <span class="v mono-tight" title="{{ content_sha256 }}">{{ sha_short }}…</span>
     </div>
     <div>
       <span class="k">Expires</span>
       <span class="v">
         {{ expires_at }}
-        {# tiny countdown - updates in-page so you can see it ticking #}
         <span class="countdown" id="expiry-countdown" data-expires-at="{{ expires_at }}"></span>
       </span>
     </div>

@@ -14,11 +14,15 @@
     {% else %}
       <span class="badge badge-danger">exhausted</span>
     {% endif %}
+    <button type="button" class="tip-btn" data-tip="live = still downloadable. revoked / expired / exhausted all mean the share is dead" aria-label="about status">i</button>
   </div>
   <p class="lede">{{ filename }}</p>
   <div class="meta">
     <div>
-      <span class="k">SHA-256</span>
+      <span class="k">
+        SHA-256
+        <button type="button" class="tip-btn" data-tip="fingerprint of the sealed bytes - mismatch means we refuse to serve" aria-label="about sha256">i</button>
+      </span>
       <span class="v mono-tight" title="{{ content_sha256 }}">{{ sha_short }}…</span>
     </div>
     <div>
@@ -30,7 +34,13 @@
         {% endif %}
       </span>
     </div>
-    <div><span class="k">Downloads left</span><span class="v">{{ downloads_left }}</span></div>
+    <div>
+      <span class="k">
+        Downloads left
+        <button type="button" class="tip-btn" data-tip="max downloads minus how many times this link already succeeded" aria-label="about downloads left">i</button>
+      </span>
+      <span class="v">{{ downloads_left }}</span>
+    </div>
   </div>
 
   {% if revoked or expired or exhausted %}
@@ -40,7 +50,10 @@
     <form action="/d/{{ token }}" method="post">
       {% if requires_passphrase %}
       <label>
-        <strong>Passphrase</strong>
+        <strong class="label-with-tip">
+          Passphrase
+          <button type="button" class="tip-btn" data-tip="uploader set a lock - wrong guess is 403 and lands in the audit log" aria-label="about passphrase">i</button>
+        </strong>
         <input type="password" name="passphrase" required autocomplete="current-password" />
       </label>
       {% endif %}

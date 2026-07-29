@@ -71,45 +71,31 @@ a:hover {
   text-decoration: underline;
 }
 
-/* ticker of custody rules - loops like the trading tape but quieter */
-.custody-tape {
+/* static top strip - rules of the seal, no scroll clone of a ticker */
+.seal-strip {
   position: relative;
   z-index: 2;
-  overflow: hidden;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(90deg, rgba(46, 196, 182, 0.16), rgba(126, 200, 255, 0.08), rgba(224, 169, 109, 0.12));
-  /* fade edges so the loop doesnt hard-cut */
-  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
-}
-
-.tape-track {
   display: flex;
-  width: max-content;
-  gap: 2rem;
-  padding: 0.45rem 0;
-  /* -50% because the items list is duplicated in the markup */
-  animation: tapeScroll 38s linear infinite;
-  font-family: var(--font-display);
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem 0.85rem;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(90deg, rgba(46, 196, 182, 0.14), rgba(14, 28, 34, 0.9), rgba(126, 200, 255, 0.1));
+  font-family: var(--font-mono);
   font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--paper);
 }
 
-.tape-track span {
-  white-space: nowrap;
-  opacity: 0.85;
-}
-
-.tape-track span::before {
-  content: "▸ ";
-  color: var(--teal);
-}
-
-@keyframes tapeScroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+.seal-strip .seal-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--teal);
+  align-self: center;
+  opacity: 0.7;
 }
 
 .page {
@@ -236,43 +222,33 @@ a:hover {
   text-decoration: none;
 }
 
-.stamp-row {
+/* single custody line - not tilted desk stamps */
+.custody-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
+  align-items: center;
+  gap: 0.55rem;
   margin-bottom: 1.35rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--teal);
+  background: rgba(46, 196, 182, 0.06);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--muted);
   animation: brandIn 0.7s ease-out 0.1s both;
 }
 
-.stamp {
-  font-family: var(--font-display);
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 0.35rem 0.55rem;
-  border: 1.5px dashed currentColor;
-  transform: rotate(-1.5deg);
+.custody-bar img {
+  flex-shrink: 0;
+  opacity: 0.9;
 }
 
-.stamp-teal {
-  color: var(--teal-bright);
-  background: var(--teal-wash);
+.custody-bar span {
+  flex: 1;
+  min-width: 0;
 }
 
-.stamp-amber {
-  color: var(--amber);
-  background: var(--amber-dim);
-  transform: rotate(1.5deg);
-}
-
-.stamp-ok {
-  color: var(--ok);
-  background: var(--ok-dim);
-  transform: rotate(-0.5deg);
-}
-
-/* icon strip under stamps - one job each */
+/* icon strip - one job each */
 .feature-strip {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -730,3 +706,169 @@ select:focus {
     border-color: rgba(94, 239, 224, 0.7);
   }
 }
+
+/* teal hexagon i - custody tips, not amber desk ? */
+.tip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  margin-left: 0.28rem;
+  border: 1.5px solid var(--teal);
+  background: var(--teal-wash);
+  color: var(--teal-bright);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+  /* hexagon-ish so it doesnt look like the trading square */
+  clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tip-btn:hover,
+.tip-btn:focus-visible,
+.tip-btn.is-open {
+  background: var(--teal);
+  color: #041210;
+  outline: none;
+}
+
+.tip-pop {
+  position: fixed;
+  z-index: 10050;
+  min-width: 11rem;
+  max-width: min(16.5rem, calc(100vw - 1.25rem));
+  padding: 0.55rem 0.7rem;
+  border: 1.5px solid var(--teal);
+  background: #0c1c20;
+  color: #d5ece8;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  animation: tipIn 0.16s ease-out;
+}
+
+.tip-pop.place-above {
+  animation-name: tipInUp;
+}
+
+.label-with-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+}
+
+.meta .k .tip-btn {
+  margin-left: 0.35rem;
+}
+
+.panel-head .tip-btn,
+.counts-head .tip-btn,
+.label-kicker .tip-btn {
+  vertical-align: middle;
+}
+
+@keyframes tipIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tipInUp {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* first-visit welcome - teal custody skin, not amber desk */
+.welcome-banner {
+  position: fixed;
+  inset: 0;
+  z-index: 10060;
+  background: rgba(7, 16, 20, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.welcome-banner[hidden] {
+  display: none !important;
+}
+
+.welcome-card {
+  width: min(22rem, 100%);
+  background: #0e1c22;
+  border: 1.5px solid var(--teal);
+  padding: 1.15rem 1.2rem 1.05rem;
+  position: relative;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), inset 3px 0 0 var(--teal);
+}
+
+.welcome-card::before {
+  content: "SEALED";
+  position: absolute;
+  top: 0.7rem;
+  right: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--teal-bright);
+  border: 1px solid var(--teal);
+  padding: 0.15rem 0.35rem;
+}
+
+.welcome-title {
+  margin: 0 0 0.45rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--paper);
+  font-weight: 700;
+}
+
+.welcome-body {
+  margin: 0 0 0.9rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted);
+  max-width: 19rem;
+  font-family: var(--font-mono);
+}
+
+.welcome-body strong {
+  color: var(--teal-bright);
+  font-weight: 700;
+}
+
+.welcome-ok {
+  border: 0;
+  padding: 0.55rem 1rem;
+  background: linear-gradient(180deg, var(--teal-bright), var(--teal-dim));
+  color: #041210;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+
+
