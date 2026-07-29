@@ -50,6 +50,7 @@ def to_iso(dt: datetime) -> str:
 
 
 def parse_iso(value: str) -> datetime:
+    # fromisoformat handles the +00:00 we write out
     return datetime.fromisoformat(value)
 
 
@@ -69,9 +70,11 @@ class Share:
 
     @property
     def requires_passphrase(self) -> bool:
+        # hash present = uploader set a passphrase
         return bool(self.passphrase_hash)
 
     def is_expired(self, now: Optional[datetime] = None) -> bool:
+        # now injectable so tests can freeze time without sleeping
         now = now or utc_now()
         return parse_iso(self.expires_at) <= now
 
@@ -82,10 +85,12 @@ class Share:
 class Database:
     def __init__(self, path: Path) -> None:
         self.path = path
+        # parent may be a tmp_path in tests
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:
+        # check_same_thread=False - fastapi can hit us from different workers in tests
         conn = sqlite3.connect(self.path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         try:
@@ -137,6 +142,7 @@ class Database:
                     max_downloads,
                 ),
             )
+        # re-read so callers get a full Share dataclass
         return self.get_share(token)  # type: ignore[return-value]
 
     def get_share(self, token: str) -> Optional[Share]:
@@ -149,6 +155,7 @@ class Database:
         return Share(**dict(row))
 
     def increment_download(self, token: str) -> None:
+        # called just before FileResponse - count wins even if client aborts mid-stream
         with self.connect() as conn:
             conn.execute(
                 """

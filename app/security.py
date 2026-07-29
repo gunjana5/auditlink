@@ -16,12 +16,14 @@ SALT_BYTES = 16
 
 def generate_token() -> str:
     """URL-safe opaque share token."""
+    # 32 bytes -> ~43 chars url-safe; enough entropy for share links
     return secrets.token_urlsafe(32)
 
 
 def generate_storage_name(original_filename: str) -> str:
     # random on-disk name; keep a sanitised ext for content-type hints only
     ext = Path(original_filename).suffix.lower()
+    # drop weird suffixes like ".tar.gz.exe" style junk - only simple .ext
     if not re.fullmatch(r"\.[a-z0-9]{1,12}", ext or ""):
         ext = ""
     return f"{secrets.token_hex(16)}{ext}"
@@ -31,6 +33,7 @@ def sanitize_display_name(filename: str) -> str:
     """Strip path components; keep a safe display name for Content-Disposition."""
     name = Path(filename).name  # drops any directory traversal
     name = name.replace("\x00", "")
+    # whitelist-ish - replace anything odd with underscore
     name = re.sub(r"[^\w.\- ()\[\]]+", "_", name).strip(" .")
     return name[:200] or "download.bin"
 

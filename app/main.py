@@ -34,6 +34,7 @@ from app.security import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+# defaults for the form + api
 DEFAULT_MAX_DOWNLOADS = 3
 DEFAULT_EXPIRY_HOURS = 24
 
@@ -59,6 +60,7 @@ def create_app(
         if audit_token is not None
         else os.environ.get("AUDIT_TOKEN", "")
     )
+    # 10 MiB default - enough for demos, not for dumping huge archives
     upload_cap = int(
         max_upload_bytes
         if max_upload_bytes is not None
@@ -70,6 +72,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        # make sure dirs / schema exist before the first request
         storage.mkdir(parents=True, exist_ok=True)
         db.init()
         yield
@@ -101,6 +104,7 @@ def create_app(
         # unset AUDIT_TOKEN = audit api is open - demo only
         if not token_secret:
             return
+        # accept either custom header or bearer
         provided = x_audit_token
         if authorization and authorization.lower().startswith("bearer "):
             provided = authorization[7:].strip()
@@ -109,6 +113,7 @@ def create_app(
 
     @application.get("/", response_class=HTMLResponse)
     async def home(request: Request):
+        # upload form - defaults match the constants above
         return templates.TemplateResponse(
             request,
             "upload.html",
@@ -127,6 +132,7 @@ def create_app(
         expiry_hours: int = Form(default=DEFAULT_EXPIRY_HOURS),
         max_downloads: int = Form(default=DEFAULT_MAX_DOWNLOADS),
     ):
+        # clamp form values so nobody sets expiry to a century
         if expiry_hours < 1 or expiry_hours > 24 * 30:
             raise HTTPException(400, "expiry_hours must be between 1 and 720")
         if max_downloads < 1 or max_downloads > 100:
@@ -149,6 +155,7 @@ def create_app(
                     break
                 size += len(chunk)
                 if size > upload_cap:
+                    # wipe the partial file so storage doesn't fill with junk
                     out.close()
                     dest.unlink(missing_ok=True)
                     raise HTTPException(
@@ -215,6 +222,7 @@ def create_app(
 
     @application.get("/d/{token}", name="download_page", response_class=HTMLResponse)
     async def download_page(request: Request, token: str):
+        # landing page - passphrase form if needed, or "expired" state
         share = db.get_share(token)
         if share is None:
             raise HTTPException(404, "Share not found")
@@ -267,6 +275,7 @@ def create_app(
             raise HTTPException(410, "Download limit reached for this share")
 
         if share.requires_passphrase:
+            # wrong / missing passphrase - 403, not 401 (no login flow)
             if not passphrase or not verify_passphrase(
                 passphrase,
                 share.passphrase_salt or "",
@@ -287,6 +296,7 @@ def create_app(
             raise HTTPException(400, "Invalid file reference")
 
         if not path.is_file():
+            # db row exists but blob gone - treat as missing
             db.log_event("download_denied", token=token, ip=ip, detail="missing_file")
             raise HTTPException(404, "File missing from storage")
 
@@ -310,6 +320,7 @@ def create_app(
         _: None = Depends(require_audit_access),
         limit: int = 100,
     ):
+        # clamp so nobody asks for a million rows
         limit = max(1, min(limit, 500))
         return {"events": db.recent_audit(limit=limit)}
 
@@ -330,4 +341,5 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
+    # reload for local tinkering - production would skip that
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

@@ -5,6 +5,7 @@
 <section class="panel">
   <h2>Share a file</h2>
   <p class="lede">Tokenized link, optional passphrase, expiry, and download cap. Every access lands in the audit log.</p>
+  {# multipart so the file bytes ride along with the form fields #}
   <form action="/upload" method="post" enctype="multipart/form-data">
     <label>
       <strong>File</strong>

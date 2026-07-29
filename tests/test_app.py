@@ -21,6 +21,7 @@ from app.security import (
 
 @pytest.fixture
 def client(tmp_path: Path):
+    # fresh storage + db per test so nothing leaks between cases
     storage = tmp_path / "storage"
     storage.mkdir()
     app = create_app(
@@ -55,6 +56,7 @@ def _upload(
 
 
 def test_upload_then_download(client: TestClient):
+    # happy path: upload -> page -> download -> audit events
     up = _upload(client, content=b"secret payload")
     assert up.status_code == 200
     body = up.json()
@@ -78,6 +80,7 @@ def test_upload_then_download(client: TestClient):
 def test_passphrase_required(client: TestClient):
     token = _upload(client, passphrase="correct-horse").json()["token"]
 
+    # wrong guess first - should 403 and leave a denied event
     bad = client.post(f"/d/{token}", data={"passphrase": "wrong"})
     assert bad.status_code == 403
 
@@ -94,7 +97,7 @@ def test_passphrase_required(client: TestClient):
 
 
 def test_expired_share_denied(client: TestClient, tmp_path: Path):
-    # Build app with access to db for backdating
+    # build app with access to db for backdating
     storage = tmp_path / "storage2"
     storage.mkdir()
     app = create_app(storage_dir=storage, db_path=tmp_path / "exp.db", audit_token="")
@@ -118,6 +121,7 @@ def test_expired_share_denied(client: TestClient, tmp_path: Path):
 
 
 def test_max_downloads(client: TestClient):
+    # budget of 1 - second hit should 410
     token = _upload(client, max_downloads=1).json()["token"]
     assert client.post(f"/d/{token}").status_code == 200
     second = client.post(f"/d/{token}")
@@ -142,6 +146,7 @@ def test_file_stored_with_random_name(client: TestClient):
 
 
 def test_path_traversal_sanitized():
+    # display name keeps the basename only
     assert sanitize_display_name("../../etc/passwd") == "passwd"
     assert sanitize_display_name("safe_file-1.txt") == "safe_file-1.txt"
 
@@ -174,6 +179,7 @@ def test_audit_token_protection(tmp_path: Path):
 
 
 def test_rate_limit_logs_event(tmp_path: Path):
+    # tiny window so the third download attempt trips 429
     app = create_app(
         storage_dir=tmp_path / "s",
         db_path=tmp_path / "r.db",

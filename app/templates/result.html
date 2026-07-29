@@ -5,6 +5,7 @@
 <section class="panel">
   <h2>Link ready</h2>
   <p class="lede">Copy this URL. It will stop working after expiry or when the download budget is spent.</p>
+  {# id used by the copy button below #}
   <div class="link-box" id="share-url">{{ share_url }}</div>
   <div class="meta">
     <div><span class="k">File</span><span class="v">{{ filename }}</span></div>
@@ -37,6 +38,7 @@
 (function () {
   var el = document.getElementById("expiry-countdown");
   if (!el) return;
+  // iso string from the server - Date.parse handles the +00:00
   var expiresAt = Date.parse(el.getAttribute("data-expires-at"));
   if (isNaN(expiresAt)) return;
 

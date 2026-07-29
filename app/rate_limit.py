@@ -11,6 +11,7 @@ class RateLimiter:
     def __init__(self, max_requests: int = 20, window_seconds: float = 60.0) -> None:
         self.max_requests = max_requests
         self.window_seconds = window_seconds
+        # key -> timestamps of recent hits (monotonic, not wall clock)
         self._hits: dict[str, deque[float]] = defaultdict(deque)
         self._lock = threading.Lock()
 
@@ -23,6 +24,7 @@ class RateLimiter:
             while q and q[0] < cutoff:
                 q.popleft()
             if len(q) >= self.max_requests:
+                # too many in the window - deny without recording
                 return False
             q.append(now)
             return True
