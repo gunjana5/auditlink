@@ -262,18 +262,6 @@ class Database:
             )
             return cur.rowcount > 0
 
-    def increment_download(self, token: str) -> None:
-        # unconditional bump - prefer try_increment_download on the download path
-        with self.connect() as conn:
-            conn.execute(
-                """
-                UPDATE shares
-                SET download_count = download_count + 1
-                WHERE token = ?
-                """,
-                (token,),
-            )
-
     def log_event(
         self,
         event_type: str,

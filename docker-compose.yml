@@ -1,0 +1,18 @@
+# local demo stack - AUDIT_TOKEN must be set in the shell (no default secret)
+services:
+  auditlink:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      AUDIT_TOKEN: ${AUDIT_TOKEN:?set AUDIT_TOKEN before docker compose up}
+      AUDITLINK_ENV: prod
+      AUDITLINK_STORAGE: /app/storage
+      AUDITLINK_DB: /app/data/auditlink.db
+    volumes:
+      - auditlink-data:/app/data
+      - auditlink-files:/app/storage
+
+volumes:
+  auditlink-data:
+  auditlink-files:

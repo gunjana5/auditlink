@@ -322,3 +322,168 @@ def test_security_headers_present(client: TestClient):
     assert r.headers.get("X-Content-Type-Options") == "nosniff"
     assert r.headers.get("X-Frame-Options") == "DENY"
     assert "Content-Security-Policy" in r.headers
+
+
+def test_upload_oversize_returns_413(tmp_path: Path):
+    storage = tmp_path / "s"
+    storage.mkdir()
+    app = create_app(
+        storage_dir=storage,
+        db_path=tmp_path / "big.db",
+        audit_token="",
+        max_upload_bytes=32,
+        run_cleanup_on_start=False,
+    )
+    with TestClient(app) as c:
+        resp = c.post(
+            "/upload",
+            files={"file": ("big.txt", BytesIO(b"x" * 64), "text/plain")},
+            data={"passphrase": "", "expiry_hours": "24", "max_downloads": "3"},
+            headers={"Accept": "application/json"},
+        )
+        assert resp.status_code == 413
+
+
+def test_form_clamps_reject_bad_expiry_and_max(client: TestClient):
+    bad_expiry = client.post(
+        "/upload",
+        files={"file": ("a.txt", BytesIO(b"hi"), "text/plain")},
+        data={"passphrase": "", "expiry_hours": "0", "max_downloads": "3"},
+        headers={"Accept": "application/json"},
+    )
+    assert bad_expiry.status_code == 400
+
+    bad_max = client.post(
+        "/upload",
+        files={"file": ("a.txt", BytesIO(b"hi"), "text/plain")},
+        data={"passphrase": "", "expiry_hours": "24", "max_downloads": "101"},
+        headers={"Accept": "application/json"},
+    )
+    assert bad_max.status_code == 400
+
+
+def test_concurrent_max_downloads_cannot_overshoot(tmp_path: Path):
+    import threading
+
+    storage = tmp_path / "s"
+    storage.mkdir()
+    app = create_app(
+        storage_dir=storage,
+        db_path=tmp_path / "race.db",
+        audit_token="",
+        rate_limit_max=1000,
+        run_cleanup_on_start=False,
+    )
+    with TestClient(app) as c:
+        token = _upload(c, max_downloads=1).json()["token"]
+        results: list[bool] = []
+        lock = threading.Lock()
+
+        def hit() -> None:
+            ok = app.state.db.try_increment_download(token)
+            with lock:
+                results.append(ok)
+
+        threads = [threading.Thread(target=hit) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert results.count(True) == 1
+        assert results.count(False) == 7
+        share = app.state.db.get_share(token)
+        assert share is not None
+        assert share.download_count == 1
+
+        # download path should now see exhausted
+        assert c.post(f"/d/{token}").status_code == 410
+
+
+def test_audit_bearer_auth(tmp_path: Path):
+    app = create_app(
+        storage_dir=tmp_path / "s",
+        db_path=tmp_path / "bearer.db",
+        audit_token="super-secret",
+        run_cleanup_on_start=False,
+    )
+    with TestClient(app) as c:
+        assert c.get("/api/audit").status_code == 401
+        ok = c.get(
+            "/api/audit",
+            headers={"Authorization": "Bearer super-secret"},
+        )
+        assert ok.status_code == 200
+        assert "events" in ok.json()
+
+
+def test_ops_cleanup_when_unlocked(tmp_path: Path):
+    storage = tmp_path / "s"
+    storage.mkdir()
+    app = create_app(
+        storage_dir=storage,
+        db_path=tmp_path / "cleanup.db",
+        audit_token="desk-secret",
+        run_cleanup_on_start=False,
+    )
+    with TestClient(app) as c:
+        body = _upload(c, content=b"soon gone").json()
+        token = body["token"]
+        share = app.state.db.get_share(token)
+        assert share is not None
+        path = resolve_under_storage(storage, share.stored_name)
+        assert path.is_file()
+
+        past = to_iso(utc_now() - timedelta(hours=1))
+        with app.state.db.connect() as conn:
+            conn.execute(
+                "UPDATE shares SET expires_at = ? WHERE token = ?",
+                (past, token),
+            )
+
+        unlock = c.post(
+            "/ops/unlock", data={"key": "desk-secret"}, follow_redirects=False
+        )
+        assert unlock.status_code == 303
+
+        cleaned = c.post(
+            "/ops/cleanup",
+            headers={"Accept": "application/json"},
+        )
+        assert cleaned.status_code == 200
+        assert cleaned.json()["removed"] == 1
+        assert not path.exists()
+
+
+def test_prod_env_requires_audit_token(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("AUDITLINK_ENV", "prod")
+    with pytest.raises(RuntimeError, match="AUDIT_TOKEN"):
+        create_app(
+            storage_dir=tmp_path / "s",
+            db_path=tmp_path / "prod.db",
+            audit_token="",
+            run_cleanup_on_start=False,
+        )
+
+
+def test_query_key_does_not_unlock(tmp_path: Path):
+    app = create_app(
+        storage_dir=tmp_path / "s",
+        db_path=tmp_path / "key.db",
+        audit_token="desk-secret",
+        run_cleanup_on_start=False,
+    )
+    with TestClient(app) as c:
+        assert c.get("/api/audit?key=desk-secret").status_code == 401
+        locked = c.get("/ops?key=desk-secret")
+        assert locked.status_code == 200
+        assert "Unlock" in locked.text
+
+
+def test_health_ok(client: TestClient):
+    r = client.get("/health")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ok"
+    assert body["db"] == "ok"
+    assert body["storage"] == "ok"

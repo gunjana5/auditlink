@@ -19,6 +19,7 @@ app/db.py - sqlite shares + audit_log, Share status helpers, audit filters/count
 app/cleanup.py - drop blobs for expired/revoked/exhausted shares
 app/rate_limit.py - sliding window deque per ip, in process ram
 app/templates/ - upload / result / download / manage / ops, extends base.html
+app/static/countdown.js - shared expiry tick for result + download pages
 storage/ - gitignored blobs. random hex names. original filename only in the db
 
 
@@ -45,8 +46,12 @@ AUDIT_TOKEN
 
 GET /api/audit and GET /ops are open when AUDIT_TOKEN env is empty. intentional for demos / pytest.
 for anything on a network set AUDIT_TOKEN. api wants X-Audit-Token or Authorization: Bearer.
-ops desk: unlock form sets an httponly cookie, or you can pass ?key=
+ops desk: unlock form sets an httponly cookie (Secure when https or AUDITLINK_SECURE_COOKIES=1).
+plain http local demo: cookie works without Secure so unlock still sticks - fine for 127.0.0.1.
+no ?key= query auth - that would leak into proxy logs / browser history / Referer.
 if someone clones this and deploys without reading the readme they'll leak the audit trail - say that in interviews. prod MUST set it; open = demo only.
+
+AUDITLINK_ENV=prod (or production) refuses to start if AUDIT_TOKEN is empty. default / unset leaves open mode for demos and pytest. docker-compose example sets the token; bare image alone does not fail closed.
 
 
 scanner stub
@@ -64,12 +69,15 @@ share row stays so audit still joins on token.
 
 expiry countdown
 
-download.html + result.html take expires_at (iso from the share row) and run a tiny js tick: "expires in Xh Ym", every minute, or every second once under 1h. if already expired / revoked, no countdown element.
+download.html + result.html share app/static/countdown.js: "expires in Xh Ym", every minute, or every second once under 1h. if already expired / revoked, no countdown element.
 
 
 rate limit
 
-RateLimiter is 20 hits / 60s / ip by default (tests bump it). pure memory + threading.Lock. restart = empty. two uvicorn workers = two separate counters. fine for a coursework demo, not redis. download path logs rate_limited before returning 429
+RateLimiter is in-process ram + threading.Lock. restart = empty. two uvicorn workers = two separate counters. fine for a coursework demo, not redis.
+download path: 20 / 60s / ip by default (tests bump it). logs rate_limited before 429.
+upload path: 10 / 60s / ip (upload:{ip}).
+passphrase spray: 10 failed guesses / 60s / ip (pass:{ip}) before 429.
 
 
 why max downloads
@@ -89,12 +97,17 @@ download checks (order matters a bit)
 3. revoked?
 4. expired? (410 + expired event)
 5. downloads exhausted? (fast path)
-6. passphrase if required
+6. passphrase if required (spray brake on bad guesses)
 7. resolve path + file still on disk
 8. sha256 match
 9. try_increment_download (atomic) - False = exhausted; then download_success + FileResponse
 
 files are only read/written as bytes. never open them with a shell or import them as code. "dont exec uploads" is the whole point tbh
+
+
+/health
+
+GET /health runs SELECT 1 on sqlite and a write/unlink probe under storage/. 200 with status ok, or 503 if either fails.
 
 
 env knobs
@@ -103,6 +116,15 @@ AUDITLINK_DB - sqlite path (default ./auditlink.db)
 AUDITLINK_STORAGE - blob dir (default ./storage)
 AUDITLINK_MAX_UPLOAD - bytes (default 10mb)
 AUDIT_TOKEN - protects /api/audit + /ops when set
+AUDITLINK_ENV - prod/production = refuse start without AUDIT_TOKEN
+AUDITLINK_SECURE_COOKIES - 1/true/yes = force Secure on the ops unlock cookie
+
+
+docker
+
+image runs as uid 10001 (auditlink). set AUDIT_TOKEN; for fail-closed also AUDITLINK_ENV=prod.
+compose needs AUDIT_TOKEN in your shell env (no default secret in the yaml).
+if named volumes make storage unwritable for non-root, chown 10001:10001 on the volume once.
 
 
 stuff that bit me / remember later
@@ -112,6 +134,13 @@ TestClient needs create_app with tmp_path or tests stomp the real db
 Accept: application/json on upload returns json; browsers get the result.html page
 x-forwarded-for first hop is what we call "ip" - trust only behind a proxy you control
 old sqlite dbs need the migrate ALTER for content_sha256 / manage_token / revoked_at - init() does that
+AUDIT_TOKEN compare uses compare_digest now - don't regress to !=
+
+
+future
+
+- clamav behind the Scanner Protocol (optional, documented, Noop by default) - only if it can work without heavy ops pain
+- encrypt blobs at rest with a key from env - only if custody limits stay honest; otherwise leave as-is and say so in interviews
 
 
 quick mental map
@@ -122,5 +151,6 @@ upload -> random blob + sha256 + manage_token + audit
 /m/manage -> status + revoke
 /ops -> audit desk
 /api/audit -> json events (gate with AUDIT_TOKEN in anything real)
+/health -> db + storage probe
 
 that's the loop when reopening this repo

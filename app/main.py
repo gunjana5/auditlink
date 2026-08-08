@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import os
 from contextlib import asynccontextmanager
 from datetime import timedelta
@@ -45,6 +46,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_MAX_DOWNLOADS = 3
 DEFAULT_EXPIRY_HOURS = 24
 OPS_COOKIE = "auditlink_ops"
+# upload / passphrase spray - separate keys on the same in-memory limiter
+UPLOAD_RATE_MAX = 10
+PASSPHRASE_RATE_MAX = 10
+
+
+def _is_prod_env() -> bool:
+    return os.environ.get("AUDITLINK_ENV", "").strip().lower() in ("prod", "production")
+
+
+def _audit_token_ok(provided: Optional[str], expected: str) -> bool:
+    # constant-time; empty / mismatched length never matches a set token
+    if not provided or not expected:
+        return False
+    if len(provided) != len(expected):
+        return False
+    return hmac.compare_digest(provided, expected)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -72,6 +89,8 @@ def create_app(
     audit_token: Optional[str] = None,
     max_upload_bytes: Optional[int] = None,
     rate_limit_max: int = 20,
+    upload_rate_max: int = UPLOAD_RATE_MAX,
+    passphrase_rate_max: int = PASSPHRASE_RATE_MAX,
     run_cleanup_on_start: bool = True,
 ) -> FastAPI:
     # env overrides so docker / tests can point at tmp dirs
@@ -87,15 +106,31 @@ def create_app(
         if audit_token is not None
         else os.environ.get("AUDIT_TOKEN", "")
     )
+    # AUDITLINK_ENV=prod refuses open ops - demo/pytest leave env unset
+    if _is_prod_env() and not token_secret:
+        raise RuntimeError(
+            "AUDITLINK_ENV=prod requires AUDIT_TOKEN to be set "
+            "(open /ops and /api/audit is demo-only)"
+        )
     # 10 MiB default - enough for demos, not for dumping huge archives
     upload_cap = int(
         max_upload_bytes
         if max_upload_bytes is not None
         else os.environ.get("AUDITLINK_MAX_UPLOAD", 10 * 1024 * 1024)
     )
+    secure_cookies = os.environ.get("AUDITLINK_SECURE_COOKIES", "").strip() in (
+        "1",
+        "true",
+        "yes",
+    )
 
     db = Database(database_path)
+    # one limiter instance; different key prefixes for download / upload / passphrase
     rate_limiter = RateLimiter(max_requests=rate_limit_max, window_seconds=60.0)
+    upload_limiter = RateLimiter(max_requests=upload_rate_max, window_seconds=60.0)
+    passphrase_limiter = RateLimiter(
+        max_requests=passphrase_rate_max, window_seconds=60.0
+    )
     scanner = NoopScanner()
 
     @asynccontextmanager
@@ -133,13 +168,12 @@ def create_app(
         authorization: Optional[str],
         x_audit_token: Optional[str],
     ) -> Optional[str]:
+        # header / bearer / cookie only - no ?key= (lands in history / proxy logs)
         provided = x_audit_token
         if authorization and authorization.lower().startswith("bearer "):
             provided = authorization[7:].strip()
         if not provided:
             provided = request.cookies.get(OPS_COOKIE)
-        if not provided:
-            provided = request.query_params.get("key")
         return provided
 
     def require_audit_access(
@@ -151,13 +185,19 @@ def create_app(
         if not token_secret:
             return
         provided = _provided_audit_secret(request, authorization, x_audit_token)
-        if provided != token_secret:
+        if not _audit_token_ok(provided, token_secret):
             raise HTTPException(status_code=401, detail="Invalid or missing audit token")
 
     def audit_unlocked(request: Request) -> bool:
         if not token_secret:
             return True
-        return _provided_audit_secret(request, None, None) == token_secret
+        return _audit_token_ok(
+            _provided_audit_secret(request, None, None), token_secret
+        )
+
+    def _ops_cookie_secure(request: Request) -> bool:
+        # https or AUDITLINK_SECURE_COOKIES=1; plain http local demo stays without Secure
+        return secure_cookies or request.url.scheme == "https"
 
     @application.get("/", response_class=HTMLResponse)
     async def home(request: Request):
@@ -180,6 +220,13 @@ def create_app(
         expiry_hours: int = Form(default=DEFAULT_EXPIRY_HOURS),
         max_downloads: int = Form(default=DEFAULT_MAX_DOWNLOADS),
     ):
+        ip = client_ip(request)
+        if not upload_limiter.allow(f"upload:{ip}"):
+            db.log_event("rate_limited", ip=ip, detail="upload")
+            raise HTTPException(
+                429, "Too many uploads from this IP. Try again shortly."
+            )
+
         # clamp form values so nobody sets expiry to a century
         if expiry_hours < 1 or expiry_hours > 24 * 30:
             raise HTTPException(400, "expiry_hours must be between 1 and 720")
@@ -351,6 +398,14 @@ def create_app(
                 share.passphrase_salt or "",
                 share.passphrase_hash or "",
             ):
+                if not passphrase_limiter.allow(f"pass:{ip}"):
+                    db.log_event(
+                        "rate_limited", token=token, ip=ip, detail="passphrase"
+                    )
+                    raise HTTPException(
+                        429,
+                        "Too many passphrase attempts from this IP. Try again shortly.",
+                    )
                 db.log_event(
                     "download_denied",
                     token=token,
@@ -523,7 +578,7 @@ def create_app(
 
     @application.post("/ops/unlock")
     async def ops_unlock(request: Request, key: str = Form(...)):
-        if not token_secret or key != token_secret:
+        if not token_secret or not _audit_token_ok(key, token_secret):
             raise HTTPException(401, "Invalid audit token")
         resp = RedirectResponse(url="/ops", status_code=303)
         resp.set_cookie(
@@ -531,6 +586,7 @@ def create_app(
             key,
             httponly=True,
             samesite="lax",
+            secure=_ops_cookie_secure(request),
             max_age=60 * 60 * 8,
         )
         return resp
@@ -567,12 +623,27 @@ def create_app(
 
     @application.get("/health")
     async def health():
-        return {"status": "ok"}
+        # db reachable + storage writable - still a simple json probe
+        try:
+            with db.connect() as conn:
+                conn.execute("SELECT 1").fetchone()
+            storage.mkdir(parents=True, exist_ok=True)
+            probe = storage / ".health_write_probe"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+        except Exception as exc:
+            return JSONResponse(
+                {"status": "error", "detail": str(exc)},
+                status_code=503,
+            )
+        return {"status": "ok", "db": "ok", "storage": "ok"}
 
     # stash bits on state so tests can poke the db / limiter
     application.state.db = db
     application.state.storage = storage
     application.state.rate_limiter = rate_limiter
+    application.state.upload_limiter = upload_limiter
+    application.state.passphrase_limiter = passphrase_limiter
     application.state.audit_token = token_secret
     return application
 

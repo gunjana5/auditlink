@@ -62,35 +62,6 @@
   {% endif %}
 </section>
 {% if status == "live" %}
-<script>
-(function () {
-  var el = document.getElementById("expiry-countdown");
-  if (!el) return;
-  var expiresAt = Date.parse(el.getAttribute("data-expires-at"));
-  if (isNaN(expiresAt)) return;
-
-  function pad(n) { return String(n); }
-
-  function tick() {
-    var ms = expiresAt - Date.now();
-    if (ms <= 0) {
-      el.textContent = "";
-      return;
-    }
-    var totalSec = Math.floor(ms / 1000);
-    var h = Math.floor(totalSec / 3600);
-    var m = Math.floor((totalSec % 3600) / 60);
-    var s = totalSec % 60;
-    if (h >= 1) {
-      el.textContent = " · expires in " + pad(h) + "h " + pad(m) + "m";
-      setTimeout(tick, 60 * 1000);
-    } else {
-      el.textContent = " · expires in " + pad(h) + "h " + pad(m) + "m " + pad(s) + "s";
-      setTimeout(tick, 1000);
-    }
-  }
-  tick();
-})();
-</script>
+<script src="/static/countdown.js"></script>
 {% endif %}
 {% endblock %}
